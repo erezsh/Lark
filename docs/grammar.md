@@ -102,9 +102,24 @@ num_list: "[" _separated{NUMBER, ","} "]"   // Will match "[1, 2, 3]" etc.
 ### Priority
 
 Terminals can be assigned a priority to influence lexing. Terminal priorities
-are signed integers with a default value of 0.
+are signed integers with a default value of 0. To give a terminal a priority other than 0, append `.p` to the end of the terminal name, whre `p` is the priority.
 
 When using a lexer, the highest priority terminals are always matched first.
+
+For example, the grammar:
+```
+start: AB | A_OR_B_PLUS
+AB: "ab"
+A_OR_B_PLUS: /[ab]+/
+```
+will parse `"ab"` as the token `AB` as written.
+
+Giving `A_OR_B_PLUS` a higher priority will result in the same string being parsed as that token:
+```
+start: AB | A_OR_B_PLUS
+AB: "ab"
+A_OR_B_PLUS.1: /[ab]+/
+```
 
 When using Earley's dynamic lexing, terminal priorities are used to prefer
 certain lexings and resolve ambiguity.
