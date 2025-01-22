@@ -174,7 +174,7 @@ RULES = {
     '_import_path': ['import_lib', 'import_rel'],
     'import_lib': ['_import_args'],
     'import_rel': ['_DOT _import_args'],
-    '_import_args': ['name', '_import_args _DOT name'],
+    '_import_args': ['name', '_import_args _DOT name', '_import_args _DOT OP'],
 
     'name_list': ['_name_list'],
     '_name_list': ['name', '_name_list _COMMA name'],
@@ -1325,8 +1325,12 @@ class GrammarBuilder:
                 self.used_files[joined_path] = h
 
                 gb = GrammarBuilder(self.global_keep_all_tokens, self.import_paths, self.used_files)
-                gb.load_grammar(text, joined_path, mangle)
-                gb._remove_unused(map(mangle, aliases))
+                if '*' in aliases:
+                    assert len(aliases) == 1
+                    gb.load_grammar(text, joined_path, base_mangle)
+                else:
+                    gb.load_grammar(text, joined_path, mangle)
+                    gb._remove_unused(map(mangle, aliases))
                 for name in gb._definitions:
                     if name in self._definitions:
                         raise GrammarError("Cannot import '%s' from '%s': Symbol already defined." % (name, grammar_path))
