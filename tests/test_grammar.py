@@ -257,6 +257,19 @@ class TestGrammar(TestCase):
         self.assertRaises(UnexpectedInput, l.parse, u'A' * 8190)
         self.assertRaises(UnexpectedInput, l.parse, u'A' * 8192)
 
+    def test_term_combine(self):
+        # Issue #1414
+        g = """
+        start: START
+        START: A B C
+        A: "a"
+        B: "b"
+        C: /c|d/
+        """
+        l = Lark(g, parser='lalr')
+        self.assertEqual(l.parse('abc'), Tree('start', ['abc']))
+        self.assertEqual(l.parse('abd'), Tree('start', ['abd']))
+
     def test_large_terminal(self):
         g = "start: NUMBERS\n"
         g += "NUMBERS: " + '|'.join('"%s"' % i for i in range(0, 1000))

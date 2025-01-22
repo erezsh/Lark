@@ -625,7 +625,7 @@ class TerminalTreeToPattern(Transformer_NonRecursive):
         if len(items) == 1:
             return items[0]
 
-        pattern = ''.join(i.to_regexp() for i in items)
+        pattern = ''.join(f'(?:{i.to_regexp()})' for i in items)
         return _make_joined_pattern(pattern, {i.flags for i in items})
 
     def expansions(self, exps: List[Pattern]) -> Pattern:
@@ -636,7 +636,7 @@ class TerminalTreeToPattern(Transformer_NonRecursive):
         # (Python's re module otherwise prefers just 'l' when given (l|ll) and both could match)
         exps.sort(key=lambda x: (-x.max_width, -x.min_width, -len(x.value)))
 
-        pattern = '(?:%s)' % ('|'.join(i.to_regexp() for i in exps))
+        pattern = '(?:%s)' % ('|'.join(f'(?:{i.to_regexp()})' for i in exps))
         return _make_joined_pattern(pattern, {i.flags for i in exps})
 
     def expr(self, args) -> Pattern:
@@ -652,7 +652,7 @@ class TerminalTreeToPattern(Transformer_NonRecursive):
                 op = "{%d,%d}" % (mn, mx)
         else:
             assert len(args) == 2
-        return PatternRE('(?:%s)%s' % (inner.to_regexp(), op), inner.flags)
+        return PatternRE(f'(?:{inner.to_regexp()}){op}', inner.flags)
 
     def maybe(self, expr):
         return self.expr(expr + ['?'])
