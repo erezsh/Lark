@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .common import LexerConf
     from .parsers.lalr_parser_state import ParserState
 
-from .utils import classify, get_regexp_width, Serialize, logger
+from .utils import classify, get_regexp_width, Serialize, logger, TextSlice, TextOrSlice
 from .exceptions import UnexpectedCharacters, LexError, UnexpectedToken
 from .grammar import TOKEN_DEFAULT_PRIORITY
 
@@ -289,7 +289,7 @@ class LineCounter:
 
         return self.char_pos == other.char_pos and self.newline_char == other.newline_char
 
-    def feed(self, token: Token, test_newline=True):
+    def feed(self, token: TextOrSlice, test_newline=True):
         """Consume a token and calculate the new line & column.
 
         As an optional optimization, set test_newline=False if token doesn't contain a newline.
@@ -305,13 +305,13 @@ class LineCounter:
 
 
 class UnlessCallback:
-    def __init__(self, scanner):
+    def __init__(self, scanner: 'Scanner'):
         self.scanner = scanner
 
-    def __call__(self, t):
-        res = self.scanner.match(t.value, 0)
-        if res:
-            _value, t.type = res
+    def __call__(self, t: Token):
+        res = self.scanner.fullmatch(t.value)
+        if res is not None:
+            t.type = res
         return t
 
 
@@ -347,19 +347,18 @@ def _create_unless(terminals, g_regex_flags, re_, use_bytes):
                 if strtok.pattern.flags <= retok.pattern.flags:
                     embedded_strs.add(strtok)
         if unless:
-            callback[retok.name] = UnlessCallback(Scanner(unless, g_regex_flags, re_, match_whole=True, use_bytes=use_bytes))
+            callback[retok.name] = UnlessCallback(Scanner(unless, g_regex_flags, re_, use_bytes=use_bytes))
 
     new_terminals = [t for t in terminals if t not in embedded_strs]
     return new_terminals, callback
 
 
 class Scanner:
-    def __init__(self, terminals, g_regex_flags, re_, use_bytes, match_whole=False):
+    def __init__(self, terminals, g_regex_flags, re_, use_bytes):
         self.terminals = terminals
         self.g_regex_flags = g_regex_flags
         self.re_ = re_
         self.use_bytes = use_bytes
-        self.match_whole = match_whole
 
         self.allowed_types = {t.name for t in self.terminals}
 
@@ -369,10 +368,9 @@ class Scanner:
         # Python sets an unreasonable group limit (currently 100) in its re module
         # Worse, the only way to know we reached it is by catching an AssertionError!
         # This function recursively tries less and less groups until it's successful.
-        postfix = '$' if self.match_whole else ''
         mres = []
         while terminals:
-            pattern = u'|'.join(u'(?P<%s>%s)' % (t.name, t.pattern.to_regexp() + postfix) for t in terminals[:max_size])
+            pattern = u'|'.join(u'(?P<%s>%s)' % (t.name, t.pattern.to_regexp()) for t in terminals[:max_size])
             if self.use_bytes:
                 pattern = pattern.encode('latin-1')
             try:
@@ -384,12 +382,19 @@ class Scanner:
             terminals = terminals[max_size:]
         return mres
 
-    def match(self, text, pos):
+    def match(self, text: TextSlice, pos):
         for mre in self._mres:
-            m = mre.match(text, pos)
+            m = mre.match(text.text, pos, text.end)
             if m:
                 return m.group(0), m.lastgroup
 
+
+    def fullmatch(self, text: str) -> Optional[str]:
+        for mre in self._mres:
+            m = mre.fullmatch(text)
+            if m:
+                return m.lastgroup
+        return None
 
 def _regexp_has_newline(r: str):
     r"""Expressions that may indicate newlines in a regexp:
@@ -409,20 +414,31 @@ class LexerState:
 
     __slots__ = 'text', 'line_ctr', 'last_token'
 
-    text: str
+    text: TextSlice
     line_ctr: LineCounter
     last_token: Optional[Token]
 
-    def __init__(self, text: str, line_ctr: Optional[LineCounter]=None, last_token: Optional[Token]=None):
+    def __init__(self, text: TextSlice, line_ctr: Optional[LineCounter] = None, last_token: Optional[Token]=None):
+        if line_ctr is None:
+            line_ctr = LineCounter(b'\n' if isinstance(text.text, bytes) else '\n')
+
+            if text.start > 0:
+                # Advance the line-count until line_ctr.char_pos == text.start
+                line_ctr.feed(TextSlice(text.text, 0, text.start))
+
+        if not (text.start <= line_ctr.char_pos <= text.end):
+            raise ValueError("LineCounter.char_pos is out of bounds")
+
         self.text = text
-        self.line_ctr = line_ctr or LineCounter(b'\n' if isinstance(text, bytes) else '\n')
+        self.line_ctr = line_ctr
         self.last_token = last_token
+
 
     def __eq__(self, other):
         if not isinstance(other, LexerState):
             return NotImplemented
 
-        return self.text is other.text and self.line_ctr == other.line_ctr and self.last_token == other.last_token
+        return self.text == other.text and self.line_ctr == other.line_ctr and self.last_token == other.last_token
 
     def __copy__(self):
         return type(self)(self.text, copy(self.line_ctr), self.last_token)
@@ -432,15 +448,18 @@ class LexerThread:
     """A thread that ties a lexer instance and a lexer state, to be used by the parser
     """
 
-    def __init__(self, lexer: 'Lexer', lexer_state: LexerState):
+    def __init__(self, lexer: 'Lexer', lexer_state: Optional[LexerState]):
         self.lexer = lexer
         self.state = lexer_state
 
     @classmethod
-    def from_text(cls, lexer: 'Lexer', text: str) -> 'LexerThread':
+    def from_text(cls, lexer: 'Lexer', text_or_slice: TextOrSlice) -> 'LexerThread':
+        text = TextSlice.cast_from(text_or_slice)
         return cls(lexer, LexerState(text))
 
     def lex(self, parser_state):
+        if self.state is None:
+            raise TypeError("Cannot lex: No text assigned to lexer state")
         return self.lexer.lex(self.state, parser_state)
 
     def __copy__(self):
@@ -461,9 +480,9 @@ class Lexer(ABC):
     def lex(self, lexer_state: LexerState, parser_state: Any) -> Iterator[Token]:
         return NotImplemented
 
-    def make_lexer_state(self, text):
+    def make_lexer_state(self, text: str):
         "Deprecated"
-        return LexerState(text)
+        return LexerState(TextSlice.cast_from(text))
 
 
 def _check_regex_collisions(terminal_to_regexp: Dict[TerminalDef, str], comparator, strict_mode, max_collisions_to_show=8):
@@ -563,9 +582,9 @@ class BasicLexer(AbstractBasicLexer):
         self.use_bytes = conf.use_bytes
         self.terminals_by_name = conf.terminals_by_name
 
-        self._scanner = None
+        self._scanner: Optional[Scanner] = None
 
-    def _build_scanner(self):
+    def _build_scanner(self) -> Scanner:
         terminals, self.callback = _create_unless(self.terminals, self.g_regex_flags, self.re, self.use_bytes)
         assert all(self.callback.values())
 
@@ -576,12 +595,12 @@ class BasicLexer(AbstractBasicLexer):
             else:
                 self.callback[type_] = f
 
-        self._scanner = Scanner(terminals, self.g_regex_flags, self.re, self.use_bytes)
+        return Scanner(terminals, self.g_regex_flags, self.re, self.use_bytes)
 
     @property
-    def scanner(self):
+    def scanner(self) -> Scanner:
         if self._scanner is None:
-            self._build_scanner()
+            self._scanner = self._build_scanner()
         return self._scanner
 
     def match(self, text, pos):
@@ -589,13 +608,13 @@ class BasicLexer(AbstractBasicLexer):
 
     def next_token(self, lex_state: LexerState, parser_state: Any = None) -> Token:
         line_ctr = lex_state.line_ctr
-        while line_ctr.char_pos < len(lex_state.text):
+        while line_ctr.char_pos < lex_state.text.end:
             res = self.match(lex_state.text, line_ctr.char_pos)
             if not res:
                 allowed = self.scanner.allowed_types - self.ignore_types
                 if not allowed:
                     allowed = {"<END-OF-FILE>"}
-                raise UnexpectedCharacters(lex_state.text, line_ctr.char_pos, line_ctr.line, line_ctr.column,
+                raise UnexpectedCharacters(lex_state.text.text, line_ctr.char_pos, line_ctr.line, line_ctr.column,
                                            allowed=allowed, token_history=lex_state.last_token and [lex_state.last_token],
                                            state=parser_state, terminals_by_name=self.terminals_by_name)
 

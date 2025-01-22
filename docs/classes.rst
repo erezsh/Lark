@@ -96,3 +96,8 @@ Indenter
 
 .. autoclass:: lark.indenter.Indenter
 .. autoclass:: lark.indenter.PythonIndenter
+
+TextSlice
+---------
+
+.. autoclass:: lark.utils.TextSlice

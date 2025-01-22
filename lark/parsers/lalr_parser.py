@@ -55,7 +55,7 @@ class LALR_Parser(Serialize):
                 if isinstance(e, UnexpectedCharacters):
                     # If user didn't change the character position, then we should
                     if p == s.line_ctr.char_pos:
-                        s.line_ctr.feed(s.text[p:p+1])
+                        s.line_ctr.feed(s.text.text[p:p+1])
 
                 try:
                     return e.interactive_parser.resume_parse()

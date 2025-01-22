@@ -7,6 +7,8 @@ from typing import Callable, Iterator, List, Optional, Tuple, Type, TypeVar, Uni
 ###{standalone
 import sys, re
 import logging
+from dataclasses import dataclass
+from typing import Generic, AnyStr
 
 logger: logging.Logger = logging.getLogger("lark")
 logger.addHandler(logging.StreamHandler())
@@ -157,6 +159,73 @@ def get_regexp_width(expr: str) -> Union[Tuple[int, int], List[int]]:
                 return 1, int(MAXWIDTH)
             else:
                 return 0, int(MAXWIDTH)
+
+
+@dataclass(frozen=True)
+class TextSlice(Generic[AnyStr]):
+    """A view of a string or bytes object, between the start and end indices.
+
+    Never creates a copy.
+
+    Lark accepts instances of TextSlice as input (instead of a string),
+    when the lexer is 'basic' or 'contextual'.
+
+    Args:
+        text (str or bytes): The text to slice.
+        start (int): The start index. Negative indices are supported.
+        end (int): The end index. Negative indices are supported.
+
+    Raises:
+        TypeError: If `text` is not a `str` or `bytes`.
+        AssertionError: If `start` or `end` are out of bounds.
+
+    Examples:
+        >>> TextSlice("Hello, World!", 7, -1)
+        TextSlice(text='Hello, World!', start=7, end=12)
+
+        >>> TextSlice("Hello, World!", 7, None).count("o")
+        1
+
+    """
+    text: AnyStr
+    start: int
+    end: int
+
+    def __post_init__(self):
+        if not isinstance(self.text, (str, bytes)):
+            raise TypeError("text must be str or bytes")
+
+        if self.start < 0:
+            object.__setattr__(self, 'start', self.start + len(self.text))
+            assert self.start >=0
+
+        if self.end is None:
+            object.__setattr__(self, 'end', len(self.text))
+        elif self.end < 0:
+            object.__setattr__(self, 'end', self.end + len(self.text))
+            assert self.end <= len(self.text)
+
+    @classmethod
+    def cast_from(cls, text: 'TextOrSlice') -> 'TextSlice[AnyStr]':
+        if isinstance(text, TextSlice):
+            return text
+
+        return cls(text, 0, len(text))
+
+    def is_complete_text(self):
+        return self.start == 0 and self.end == len(self.text)
+
+    def __len__(self):
+        return self.end - self.start
+
+    def count(self, substr: AnyStr):
+        return self.text.count(substr, self.start, self.end)
+
+    def rindex(self, substr: AnyStr):
+        return self.text.rindex(substr, self.start, self.end)
+
+
+TextOrSlice = Union[AnyStr, 'TextSlice[AnyStr]']
 
 ###}
 

@@ -1,7 +1,7 @@
 from typing import Any, Callable, Dict, Optional, Collection, Union, TYPE_CHECKING
 
 from .exceptions import ConfigurationError, GrammarError, assert_config
-from .utils import get_regexp_width, Serialize
+from .utils import get_regexp_width, Serialize, TextOrSlice, TextSlice
 from .lexer import LexerThread, BasicLexer, ContextualLexer, Lexer
 from .parsers import earley, xearley, cyk
 from .parsers.lalr_parser import LALR_Parser
@@ -15,16 +15,31 @@ if TYPE_CHECKING:
 ###{standalone
 
 def _wrap_lexer(lexer_class):
-    future_interface = getattr(lexer_class, '__future_interface__', False)
-    if future_interface:
+    future_interface = getattr(lexer_class, '__future_interface__', 0)
+    if future_interface == 2:
         return lexer_class
-    else:
-        class CustomLexerWrapper(Lexer):
+    elif future_interface == 1:
+        class CustomLexerWrapper1(Lexer):
             def __init__(self, lexer_conf):
                 self.lexer = lexer_class(lexer_conf)
             def lex(self, lexer_state, parser_state):
-                return self.lexer.lex(lexer_state.text)
-        return CustomLexerWrapper
+                if not lexer_state.text.is_complete_text():
+                    raise TypeError("Interface=1 Custom Lexer don't support TextSlice")
+                lexer_state.text = lexer_state.text
+                return self.lexer.lex(lexer_state, parser_state)
+        return CustomLexerWrapper1
+    elif future_interface == 0:
+        class CustomLexerWrapper0(Lexer):
+            def __init__(self, lexer_conf):
+                self.lexer = lexer_class(lexer_conf)
+
+            def lex(self, lexer_state, parser_state):
+                if not lexer_state.text.is_complete_text():
+                    raise TypeError("Interface=0 Custom Lexer don't support TextSlice")
+                return self.lexer.lex(lexer_state.text.text)
+        return CustomLexerWrapper0
+    else:
+        raise ValueError(f"Unknown __future_interface__ value {future_interface}, integer 0-2 expected")
 
 
 def _deserialize_parsing_frontend(data, memo, lexer_conf, callbacks, options):
@@ -93,23 +108,27 @@ class ParsingFrontend(Serialize):
             raise ConfigurationError("Unknown start rule %s. Must be one of %r" % (start, self.parser_conf.start))
         return start
 
-    def _make_lexer_thread(self, text: str) -> Union[str, LexerThread]:
+    def _make_lexer_thread(self, text: Optional[TextOrSlice]) -> Union[TextOrSlice, LexerThread, None]:
         cls = (self.options and self.options._plugins.get('LexerThread')) or LexerThread
-        return text if self.skip_lexer else cls.from_text(self.lexer, text)
+        return text if self.skip_lexer else cls(self.lexer, None) if text is None else cls.from_text(self.lexer, text)
 
-    def parse(self, text: str, start=None, on_error=None):
+    def parse(self, text: Optional[TextOrSlice], start=None, on_error=None):
+        if self.lexer_conf.lexer_type in ("dynamic", "dynamic_complete"):
+            if isinstance(text, TextSlice) and not text.is_complete_text():
+                raise TypeError(f"Lexer {self.lexer_conf.lexer_type} does not support text slices.")
+
         chosen_start = self._verify_start(start)
         kw = {} if on_error is None else {'on_error': on_error}
         stream = self._make_lexer_thread(text)
         return self.parser.parse(stream, chosen_start, **kw)
 
-    def parse_interactive(self, text: Optional[str]=None, start=None):
+    def parse_interactive(self, text: Optional[TextOrSlice]=None, start=None):
         # TODO BREAK - Change text from Optional[str] to text: str = ''.
         #   Would break behavior of exhaust_lexer(), which currently raises TypeError, and after the change would just return []
         chosen_start = self._verify_start(start)
         if self.parser_conf.parser_type != 'lalr':
             raise ConfigurationError("parse_interactive() currently only works with parser='lalr' ")
-        stream = self._make_lexer_thread(text)  # type: ignore[arg-type]
+        stream = self._make_lexer_thread(text)
         return self.parser.parse_interactive(stream, chosen_start)
 
 
