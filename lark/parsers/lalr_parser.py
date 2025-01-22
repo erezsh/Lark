@@ -101,7 +101,7 @@ class _Parser:
                 assert token is not None
                 state.feed_token(token)
 
-            end_token = Token.new_borrow_pos('$END', '', token) if token else Token('$END', '', 0, 1, 1)
+            end_token = Token.new_borrow_pos('$END', '', token) if token is not None else Token('$END', '', 0, 1, 1)
             return state.feed_token(end_token, True)
         except UnexpectedInput as e:
             try:
