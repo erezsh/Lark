@@ -6,40 +6,6 @@
 Welcome to Lark's documentation!
 ================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Overview
-   :hidden:
-
-   philosophy
-   features
-   parsers
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Tutorials & Guides
-   :hidden:
-
-   json_tutorial
-   how_to_use
-   how_to_develop
-   recipes
-   examples/index
-
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-   :hidden:
-
-   grammar
-   tree_construction
-   classes
-   visitors
-   forest
-   tools
-
-
 
 Lark is a modern parsing library for Python. Lark can parse any context-free grammar.
 
@@ -50,6 +16,8 @@ Lark provides:
 - Automatic tree construction, inferred from your grammar
 - Fast unicode lexer with regexp support, and automatic line-counting
 
+Refer to the section :doc:`features` for more information.
+
 
 Install Lark
 --------------
@@ -58,65 +26,52 @@ Install Lark
 
    $ pip install lark
 
-Syntax Highlighting
--------------------
 
--  `Sublime Text & TextMate`_
--  `Visual Studio Code`_ (Or install through the vscode plugin system)
--  `Intellij & PyCharm`_
--  `Vim`_
--  `Atom`_
+-------
 
-.. _Sublime Text & TextMate: https://github.com/lark-parser/lark_syntax
-.. _Visual Studio Code: https://github.com/lark-parser/vscode-lark
-.. _Intellij & PyCharm: https://github.com/lark-parser/intellij-syntax-highlighting
-.. _Vim: https://github.com/lark-parser/vim-lark-syntax
-.. _Atom: https://github.com/Alhadis/language-grammars
+How the documentation is organized
+----------------------------------
 
-Resources
----------
+A high-level overview of how it’s organized will help you know where to look for certain things:
 
--  :doc:`philosophy`
--  :doc:`features`
--  `Examples`_
--  `Third-party examples`_
--  `Online IDE`_
--  Tutorials
+* Tutorials take you by the hand through a series of steps how to get familiar with Lark. Start here if you’re new to Lark.
+* How-to guides are bite-sized, problem-specific solutions to common tasks.
+* Addendums covers background information to Lark.
+* References contain syntax and semantics reference material for Lark.
 
-   -  `How to write a DSL`_ - Implements a toy LOGO-like language with
-      an interpreter
-   -  :doc:`json_tutorial` - Teaches you how to use Lark
-   -  Unofficial
+.. toctree::
+   :maxdepth: 2
+   :caption: First steps
 
-      -  `Program Synthesis is Possible`_ - Creates a DSL for Z3
-      -  `Using Lark to Parse Text - Robin Reynolds-Haertle (PyCascades 2023) <https://www.youtube.com/watch?v=CeOtqlh0UuQ>`_ (video presentation)
-
--  Guides
-
-   -  :doc:`how_to_use`
-   -  :doc:`how_to_develop`
-
--  Reference
-
-   -  :doc:`grammar`
-   -  :doc:`tree_construction`
-   -  :doc:`visitors`
-   -  :doc:`forest`
-   -  :doc:`classes`
-   -  :doc:`tools`
-   -  `Cheatsheet (PDF)`_
-
--  Discussion
-
-   -  `Gitter`_
-   -  `Forum (Google Groups)`_
+   json_tutorial
 
 
-.. _Examples: https://github.com/lark-parser/lark/tree/master/examples
-.. _Third-party examples: https://github.com/ligurio/lark-grammars
-.. _Online IDE: https://lark-parser.org/ide
-.. _How to write a DSL: http://blog.erezsh.com/how-to-write-a-dsl-in-python-with-lark/
-.. _Program Synthesis is Possible: https://www.cs.cornell.edu/~asampson/blog/minisynth.html
-.. _Cheatsheet (PDF): _static/lark_cheatsheet.pdf
-.. _Gitter: https://gitter.im/lark-parser/Lobby
-.. _Forum (Google Groups): https://groups.google.com/forum/#!forum/lark-parser
+.. toctree::
+   :maxdepth: 2
+   :caption: How-to guides
+
+   recipes
+   examples/index
+   how_to_use
+   how_to_develop
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Addendum
+
+   philosophy
+   resources
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   features
+   parsers
+   grammar
+   tree_construction
+   classes
+   visitors
+   forest
+   tools

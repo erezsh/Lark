@@ -1,4 +1,4 @@
-# How To Use Lark - Guide
+# Working with Lark
 
 ## Work process
 
