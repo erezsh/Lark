@@ -391,6 +391,32 @@ class Scanner:
                 return m.group(0), m.lastgroup
 
 
+class LongestMatchScanner:
+    def __init__(self, terminals, g_regex_flags, re_, use_bytes):
+        self.terminals = terminals
+        self.g_regex_flags = g_regex_flags
+        self.use_bytes = use_bytes
+        self.allowed_types = {t.name for t in self.terminals}
+
+        self.name_regex = {}
+        for t in self.terminals:
+            pattern = t.pattern.to_regexp()
+            if self.use_bytes:
+                pattern = pattern.encode('latin-1')
+            self.name_regex[t.name] = re_.compile(pattern, self.g_regex_flags)
+
+    def match(self, text, pos):
+        longestMatchLen = -1
+        longestMatch = None
+        for name, regex in self.name_regex.items():
+            m = regex.match(text, pos)
+            if m and longestMatchLen < len(m.group()):
+                longestMatchLen = len(m.group())
+                longestMatch = (m.group(0), name)
+
+        return longestMatch
+
+
 def _regexp_has_newline(r: str):
     r"""Expressions that may indicate newlines in a regexp:
         - newlines (\n)
@@ -620,6 +646,25 @@ class BasicLexer(AbstractBasicLexer):
 
         # EOF
         raise EOFError(self)
+
+
+class LongestMatchLexer(BasicLexer):
+    def __init__(self, conf: 'LexerConf', comparator=None) -> None:
+        super().__init__(conf, comparator)
+        self.terminals = list(conf.terminals)
+
+    def _build_scanner(self):
+        terminals, self.callback = _create_unless(self.terminals, self.g_regex_flags, self.re, self.use_bytes)
+        assert all(self.callback.values())
+
+        for type_, f in self.user_callbacks.items():
+            if type_ in self.callback:
+                # Already a callback there, probably UnlessCallback
+                self.callback[type_] = CallChain(self.callback[type_], f, lambda t: t.type == type_)
+            else:
+                self.callback[type_] = f
+
+        self._scanner = LongestMatchScanner(terminals, self.g_regex_flags, self.re, self.use_bytes)
 
 
 class ContextualLexer(Lexer):

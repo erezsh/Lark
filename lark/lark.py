@@ -21,7 +21,7 @@ from .load_grammar import load_grammar, FromPackageLoader, Grammar, verify_used_
 from .tree import Tree
 from .common import LexerConf, ParserConf, _ParserArgType, _LexerArgType
 
-from .lexer import Lexer, BasicLexer, TerminalDef, LexerThread, Token
+from .lexer import Lexer, BasicLexer, LongestMatchLexer, TerminalDef, LexerThread, Token
 from .parse_tree_builder import ParseTreeBuilder
 from .parser_frontends import _validate_frontend_args, _get_lexer_callbacks, _deserialize_parsing_frontend, _construct_parsing_frontend
 from .grammar import Rule
@@ -119,6 +119,7 @@ class LarkOptions(Serialize):
             - "auto" (default): Choose for me based on the parser
             - "basic": Use a basic lexer
             - "contextual": Stronger lexer (only works with parser="lalr")
+            - "longest_match": Uses longest match found, where the precedence of the terminals follow the order they are defined (only works with parser='lalr')
             - "dynamic": Flexible and powerful (only with parser="earley")
             - "dynamic_complete": Same as dynamic, but tries *every* variation of tokenizing possible.
     ambiguity
@@ -378,7 +379,7 @@ class Lark(Serialize):
         if isinstance(lexer, type):
             assert issubclass(lexer, Lexer)     # XXX Is this really important? Maybe just ensure interface compliance
         else:
-            assert_config(lexer, ('basic', 'contextual', 'dynamic', 'dynamic_complete'))
+            assert_config(lexer, ('basic', 'longest_match', 'contextual', 'dynamic', 'dynamic_complete'))
             if self.options.postlex is not None and 'dynamic' in lexer:
                 raise ConfigurationError("Can't use postlex with a dynamic lexer. Use basic or contextual instead")
 
@@ -462,7 +463,11 @@ class Lark(Serialize):
             from copy import copy
             lexer_conf = copy(lexer_conf)
             lexer_conf.ignore = ()
-        return BasicLexer(lexer_conf)
+        createLexer = {
+            'basic': BasicLexer,
+            'longest_match': LongestMatchLexer
+        }[self.options.lexer]
+        return createLexer(lexer_conf)
 
     def _prepare_callbacks(self) -> None:
         self._callbacks = {}

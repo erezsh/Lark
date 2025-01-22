@@ -2,7 +2,7 @@ from typing import Any, Callable, Dict, Optional, Collection, Union, TYPE_CHECKI
 
 from .exceptions import ConfigurationError, GrammarError, assert_config
 from .utils import get_regexp_width, Serialize
-from .lexer import LexerThread, BasicLexer, ContextualLexer, Lexer
+from .lexer import LexerThread, BasicLexer, LongestMatchLexer, ContextualLexer, Lexer
 from .parsers import earley, xearley, cyk
 from .parsers.lalr_parser import LALR_Parser
 from .tree import Tree
@@ -74,6 +74,7 @@ class ParsingFrontend(Serialize):
         elif isinstance(lexer_type, str):
             create_lexer = {
                 'basic': create_basic_lexer,
+                'longest_match': create_longest_match_lexer,
                 'contextual': create_contextual_lexer,
             }[lexer_type]
             self.lexer = create_lexer(lexer_conf, self.parser, lexer_conf.postlex, options)
@@ -117,7 +118,7 @@ def _validate_frontend_args(parser, lexer) -> None:
     assert_config(parser, ('lalr', 'earley', 'cyk'))
     if not isinstance(lexer, type):     # not custom lexer?
         expected = {
-            'lalr': ('basic', 'contextual'),
+            'lalr': ('basic', 'longest_match', 'contextual'),
             'earley': ('basic', 'dynamic', 'dynamic_complete'),
             'cyk': ('basic', ),
          }[parser]
@@ -145,6 +146,10 @@ class PostLexConnector:
 
 def create_basic_lexer(lexer_conf, parser, postlex, options) -> BasicLexer:
     cls = (options and options._plugins.get('BasicLexer')) or BasicLexer
+    return cls(lexer_conf)
+
+def create_longest_match_lexer(lexer_conf, parser, postlex, options) -> BasicLexer:
+    cls = (options and options._plugins.get('LongestMatchLexer')) or LongestMatchLexer
     return cls(lexer_conf)
 
 def create_contextual_lexer(lexer_conf: LexerConf, parser, postlex, options) -> ContextualLexer:

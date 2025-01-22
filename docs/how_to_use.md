@@ -44,7 +44,7 @@ But if it doesn't, feel free to ask us on gitter, or even open an issue. Post a 
 
 ### Regex collisions
 
-A likely source of bugs occurs when two regexes in a grammar can match the same input. If both terminals have the same priority, most lexers would arbitrarily choose the first one that matches, which isn't always the desired one. (a notable exception is the `dynamic_complete` lexer, which always tries all variations. But its users pay for that with performance.)
+A likely source of bugs occurs when two regexes in a grammar can match the same input. If both terminals have the same priority, most lexers would arbitrarily choose the first one that matches, which isn't always the desired one. (a notable exception is the `dynamic_complete` lexer, which always tries all variations. But its users pay for that with performance.) The `longest_match` lexer chooses the terminal with the longest matched length, similiar to the Unix tool "Lex".
 
 These collisions can be hard to notice, and their effects can be difficult to debug, as they are subtle and sometimes hard to reproduce.
 

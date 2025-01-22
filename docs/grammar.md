@@ -135,6 +135,8 @@ When using a lexer (basic or contextual), it is the grammar-author's responsibil
 3. Length of literal / pattern definition
 4. Name
 
+When using the longest_match lexer, for matches that have the same length the literal that is defined first is used.
+
 **Examples:**
 ```perl
 IF: "if"
