@@ -11,7 +11,7 @@ from ast import literal_eval
 from contextlib import suppress
 from typing import List, Tuple, Union, Callable, Dict, Optional, Sequence, Generator
 
-from .utils import bfs, logger, classify_bool, is_id_continue, is_id_start, bfs_all_unique, small_factors, OrderedSet
+from .utils import bfs, logger, classify_bool, is_id_continue, is_id_start, bfs_all_unique, small_factors, OrderedSet, Serialize
 from .lexer import Token, TerminalDef, PatternStr, PatternRE, Pattern
 
 from .parse_tree_builder import ParseTreeBuilder
@@ -676,7 +676,7 @@ def nr_deepcopy_tree(t):
     return Transformer_NonRecursive(False).transform(t)
 
 
-class Grammar:
+class Grammar(Serialize):
 
     term_defs: List[Tuple[str, Tuple[Tree, int]]]
     rule_defs: List[Tuple[str, Tuple[str, ...], Tree, RuleOptions]]
@@ -686,6 +686,8 @@ class Grammar:
         self.term_defs = term_defs
         self.rule_defs = rule_defs
         self.ignore = ignore
+
+    __serialize_fields__ = 'term_defs', 'rule_defs', 'ignore'
 
     def compile(self, start, terminals_to_keep) -> Tuple[List[TerminalDef], List[Rule], List[str]]:
         # We change the trees in-place (to support huge grammars)
@@ -977,6 +979,8 @@ def _parse_grammar(text, name, start='start'):
 
     return PrepareGrammar().transform(tree)
 
+def _deserialize_grammar(data, memo) -> Grammar:
+    return Grammar.deserialize(data, memo)
 
 def _error_repr(error):
     if isinstance(error, UnexpectedToken):

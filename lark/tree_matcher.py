@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from . import Tree, Token
 from .common import ParserConf
+from .exceptions import ConfigurationError
 from .parsers import earley
 from .grammar import Rule, Terminal, NonTerminal
 
@@ -89,8 +90,15 @@ class TreeMatcher:
     def __init__(self, parser):
         # XXX TODO calling compile twice returns different results!
         assert not parser.options.maybe_placeholders
+
         # XXX TODO: we just ignore the potential existence of a postlexer
-        self.tokens, rules, _extra = parser.grammar.compile(parser.options.start, set())
+        if parser.options.postlex is None:
+            self.tokens = parser.terminals.copy()
+            rules = parser.rules.copy()
+        else:
+            if not hasattr(parser, 'grammar') and parser.options.cache:
+                raise ConfigurationError('Unanalyzed grammar not available from cached parser, use cache_grammar=True')
+            self.tokens, rules, _extra = parser.grammar.compile(parser.options.start, set())
 
         self.rules_for_root = defaultdict(list)
 
